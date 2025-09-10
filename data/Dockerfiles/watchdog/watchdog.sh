@@ -302,14 +302,34 @@ unbound_checks() {
     touch /tmp/unbound-mailcow; echo "$(tail -50 /tmp/unbound-mailcow)" > /tmp/unbound-mailcow
     host_ip=$(get_container_ip unbound-mailcow)
     err_c_cur=${err_count}
-    /usr/lib/mailcow/check_dns.sh -s ${host_ip} -H stackoverflow.com 2>> /tmp/unbound-mailcow 1>&2; err_count=$(( ${err_count} + $? ))
-    DNSSEC=$(dig com +dnssec | egrep 'flags:.+ad')
+
+    # Explicit IPv4 check
+    if ! dig @"${host_ip}" -p 53 example.com A +short | grep -qE '^[0-9]{1,3}(\.[0-9]{1,3}){3}$'; then
+      echo "IPv4 DNS check failed" 2>> /tmp/unbound-mailcow 1>&2
+      err_count=$(( ${err_count} + 1 ))
+    else
+      echo "IPv4 DNS check passed" 2>> /tmp/unbound-mailcow 1>&2
+    fi
+
+    # Explicit IPv6 check, only if host has IPv6
+    if ip -6 addr show | grep -q "inet6"; then
+      if ! dig @"${host_ip}" -p 53 example.com AAAA +short | grep -qE '^[0-9a-fA-F:]+$'; then
+        echo "IPv6 DNS check failed" 2>> /tmp/unbound-mailcow 1>&2
+        err_count=$(( ${err_count} + 1 ))
+      else
+        echo "IPv6 DNS check passed" 2>> /tmp/unbound-mailcow 1>&2
+      fi
+    fi
+
+    # DNSSEC check
+    DNSSEC=$(dig @"${host_ip}" com +dnssec | egrep 'flags:.+ad')
     if [[ -z ${DNSSEC} ]]; then
       echo "DNSSEC failure" 2>> /tmp/unbound-mailcow 1>&2
-      err_count=$(( ${err_count} + 1))
+      err_count=$(( ${err_count} + 1 ))
     else
       echo "DNSSEC check succeeded" 2>> /tmp/unbound-mailcow 1>&2
     fi
+
     [ ${err_c_cur} -eq ${err_count} ] && [ ! $((${err_count} - 1)) -lt 0 ] && err_count=$((${err_count} - 1)) diff_c=1
     [ ${err_c_cur} -ne ${err_count} ] && diff_c=$(( ${err_c_cur} - ${err_count} ))
     progress "Unbound" ${THRESHOLD} $(( ${THRESHOLD} - ${err_count} )) ${diff_c}
