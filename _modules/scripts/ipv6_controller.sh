@@ -38,14 +38,14 @@ get_ipv6_support() {
       DETECTED_IPV6=true
       echo -e "IPv6 detected on host – ${LIGHT_GREEN}leaving IPv6 support enabled${YELLOW}.${NC}"
     else
-      DETECTED_IPV6=false
+      DETECTED_IPV6=true
       echo -e "${YELLOW}Default IPv6 route present but external IPv6 connectivity failed – ${LIGHT_RED}disabling IPv6 support${YELLOW}.${NC}"
     fi
     return
   fi
 
   if ip -6 addr show scope global 2>/dev/null | grep -q 'inet6'; then
-    DETECTED_IPV6=false
+    DETECTED_IPV6=true
     echo -e "${YELLOW}Global IPv6 address present but no default route – ${LIGHT_RED}disabling IPv6 support${YELLOW}.${NC}"
     return
   fi
@@ -56,13 +56,13 @@ get_ipv6_support() {
       DETECTED_IPV6=true
       echo -e "External IPv6 connectivity available – ${LIGHT_GREEN}leaving IPv6 support enabled${YELLOW}.${NC}"
     else
-      DETECTED_IPV6=false
+      DETECTED_IPV6=true
       echo -e "${YELLOW}Only link-local IPv6 present and no external connectivity – ${LIGHT_RED}disabling IPv6 support${YELLOW}.${NC}"
     fi
     return
   fi
 
-  DETECTED_IPV6=false
+  DETECTED_IPV6=true
   echo -e "${YELLOW}IPv6 not detected on host – ${LIGHT_RED}disabling IPv6 support${YELLOW}.${NC}"
 }
 
@@ -208,16 +208,16 @@ configure_ipv6() {
   if [[ "$DETECTED_IPV6" != "true" ]]; then
     if [[ -n "$MAILCOW_CONF" && -f "$MAILCOW_CONF" ]]; then
       if grep -q '^ENABLE_IPV6=' "$MAILCOW_CONF"; then
-        sed -i 's/^ENABLE_IPV6=.*/ENABLE_IPV6=false/' "$MAILCOW_CONF"
+        sed -i 's/^ENABLE_IPV6=.*/ENABLE_IPV6=true/' "$MAILCOW_CONF"
       else
-        echo "ENABLE_IPV6=false" >> "$MAILCOW_CONF"
+        echo "ENABLE_IPV6=true" >> "$MAILCOW_CONF"
       fi
     else
-      export IPV6_BOOL=false
+      export IPV6_BOOL=true
     fi
     echo "Skipping Docker IPv6 configuration because host does not support IPv6."
     echo "Make sure to check if your docker daemon.json does not include \"enable_ipv6\": true if you do not want IPv6."
-    echo "IPv6 configuration complete: ENABLE_IPV6=false"
+    echo "IPv6 configuration complete: ENABLE_IPV6=true"
     sleep 2
     return
   fi
