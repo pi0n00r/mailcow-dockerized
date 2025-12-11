@@ -1,0 +1,21 @@
+services:
+  sogo-mailcow:
+    image: mailcow/sogo:stable
+  dovecot-mailcow:
+    image: mailcow/dovecot:stable
+  postfix-mailcow:
+    image: mailcow/postfix:stable
+  rspamd-mailcow:
+    image: mailcow/rspamd:stable
+  php-fpm-mailcow:
+    image: mailcow/php-fpm:stable
+  netfilter-mailcow:
+    image: mailcow/netfilter:stable
+  olefy-mailcow:
+    image: mailcow/olefy:stable
+  clamd-mailcow:
+    image: mailcow/clamd:stable
+  dockerapi-mailcow:
+    image: mailcow/dockerapi:stable
+  acme-mailcow:
+    image: mailcow/acme:stable
