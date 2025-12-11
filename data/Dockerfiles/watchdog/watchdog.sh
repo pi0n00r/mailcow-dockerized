@@ -293,45 +293,34 @@ nginx_checks() {
 }
 
 unbound_checks() {
-  err_count=0
-  diff_c=0
-  THRESHOLD=${UNBOUND_THRESHOLD}
-  trap "[ ${err_count} -gt 1 ] && err_count=$(( ${err_count} - 2 ))" USR1
-  while [ ${err_count} -lt ${THRESHOLD} ]; do
-    touch /tmp/unbound-mailcow; echo "$(tail -50 /tmp/unbound-mailcow)" > /tmp/unbound-mailcow
-    host_ip=$(get_container_ip unbound-mailcow)
-    err_c_cur=${err_count}
+  local retries=3
+  local delay=2
+  local success=0
 
-    # Improved Unbound DNS check (IPv4 & IPv6)
-    TEST_DOMAIN="mailcow.email"
-    RES_IPV4=$(dig +short A "${TEST_DOMAIN}" @"${host_ip}" \
-               | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -n1)
-    RES_IPV6=$(dig +short AAAA "${TEST_DOMAIN}" @"${host_ip}" \
-               | grep -Eo '([A-Fa-f0-9:]+:+)+[A-Fa-f0-9]+' | head -n1)
-
-    if [[ -n "${RES_IPV4}" || -n "${RES_IPV6}" ]]; then
-      echo "Unbound resolution OK: IPv4=${RES_IPV4:-N/A}, IPv6=${RES_IPV6:-N/A}" \
-           2>> /tmp/unbound-mailcow
-      err_inc=0
-    else
-      echo "Unbound resolution FAILED for ${TEST_DOMAIN}" \
-           2>> /tmp/unbound-mailcow
-      err_inc=1
+  for i in $(seq 1 $retries); do
+    # IPv4 probe
+    if drill . NS @127.0.0.1 | grep -q "IN"; then
+      success=$((success+1))
     fi
-    err_count=$(( err_count + err_inc ))
 
-    [ ${err_c_cur} -eq ${err_count} ] && [ ! $((${err_count} - 1)) -lt 0 ] \
-      && err_count=$((${err_count} - 1)) diff_c=1
-    [ ${err_c_cur} -ne ${err_count} ] && diff_c=$(( ${err_c_cur} - ${err_count} ))
-    progress "Unbound" ${THRESHOLD} $(( ${THRESHOLD} - ${err_count} )) ${diff_c}
-    if [[ $? == 10 ]]; then
-      diff_c=0
-      sleep 1
-    else
-      diff_c=0
-      sleep $(( ( RANDOM % 60 ) + 20 ))
+    # IPv6 probe (if available)
+    if drill . NS @::1 | grep -q "IN"; then
+      success=$((success+1))
     fi
+
+    # If either probe succeeded, break early
+    if [ $success -gt 0 ]; then
+      echo "Unbound check passed (attempt $i)" >> /tmp/unbound-mailcow
+      return 0
+    fi
+
+    sleep $delay
   done
+
+  # If all retries failed, restart and notify
+  echo "Unbound check failed after $retries attempts" >> /tmp/unbound-mailcow
+  restart_container unbound
+  notify "Unbound resolver unhealthy (IPv4+IPv6 probes failed), restarted"
   return 1
 }
 
