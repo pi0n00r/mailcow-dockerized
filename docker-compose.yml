@@ -84,7 +84,7 @@ services:
             - clamd
 
     rspamd-mailcow:
-      image: ghcr.io/mailcow/rspamd:2.4
+      image: ghcr.io/mailcow/rspamd:3.14.2
       stop_grace_period: 30s
       depends_on:
         - dovecot-mailcow
@@ -117,7 +117,7 @@ services:
             - rspamd
 
     php-fpm-mailcow:
-      image: ghcr.io/mailcow/phpfpm:8.2.29
+      image: ghcr.io/mailcow/phpfpm:8.2.29-1
       command: "php-fpm -d date.timezone=${TZ} -d expose_php=0"
       depends_on:
         - redis-mailcow
@@ -200,7 +200,7 @@ services:
             - phpfpm
 
     sogo-mailcow:
-      image: ghcr.io/mailcow/sogo:5.12.4
+      image: ghcr.io/mailcow/sogo:5.12.4-1
       environment:
         - DBNAME=${DBNAME}
         - DBUSER=${DBUSER}
@@ -252,7 +252,7 @@ services:
             - sogo
 
     dovecot-mailcow:
-      image: ghcr.io/mailcow/dovecot:2.3.21.1
+      image: ghcr.io/mailcow/dovecot:2.3.21.1-1
       depends_on:
         - mysql-mailcow
         - netfilter-mailcow
@@ -339,7 +339,7 @@ services:
             - dovecot
 
     postfix-mailcow:
-      image: ghcr.io/mailcow/postfix:3.7.11
+      image: ghcr.io/mailcow/postfix:3.7.11-1
       depends_on:
         mysql-mailcow:
           condition: service_started
@@ -465,7 +465,7 @@ services:
           condition: service_started
         unbound-mailcow:
           condition: service_healthy
-      image: ghcr.io/mailcow/acme:1.94
+      image: ghcr.io/mailcow/acme:1.95
       dns:
         - ${IPV4_NETWORK:-172.22.1}.254
       environment:
