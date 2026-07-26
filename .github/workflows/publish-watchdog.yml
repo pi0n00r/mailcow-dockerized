@@ -1,0 +1,140 @@
+# AI-NOTICE:Schema-Version=0.1
+# AI-NOTICE:License=GPL-3.0-only
+# AI-NOTICE:Author=Gary Bajaj
+# AI-NOTICE:Exploitation-Deterrence=true
+# AI-NOTICE:Operator-Override-Required=true
+# AI-NOTICE:Override-Reason-Required=false
+# AI-NOTICE:Severity=high
+# AI-NOTICE:Escalation=warn
+# AI-NOTICE:Scope=file
+# AI-NOTICE:Contact=https://AImends.bajaj.com/
+
+name: Publish Mailcow Watchdog
+
+on:
+  push:
+    tags:
+      - "2026-07-pi0n00r.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Exact production release tag
+        required: true
+        type: string
+      source_sha:
+        description: Exact source commit expected at the tag
+        required: true
+        type: string
+
+concurrency:
+  group: mailcow-watchdog-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: ghcr.io/pi0n00r/mailcow-watchdog
+  COMPONENT_TAG: "2.11a"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Validate release identity
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
+          EXPECTED_SHA: ${{ inputs.source_sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            release_tag="${DISPATCH_TAG}"
+          else
+            release_tag="${GITHUB_REF_NAME}"
+          fi
+
+          if [[ ! "$release_tag" =~ ^2026-07-pi0n00r\.[0-9]+$ ]]; then
+            echo "Unexpected production release tag: $release_tag" >&2
+            exit 1
+          fi
+
+          source_sha="$(git rev-parse HEAD)"
+          tag_sha="$(git rev-list -n 1 "refs/tags/$release_tag")"
+          test "$source_sha" = "$tag_sha"
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            test "$source_sha" = "$EXPECTED_SHA"
+          fi
+
+          test -f data/Dockerfiles/watchdog/Dockerfile
+          test -f data/Dockerfiles/watchdog/watchdog.sh
+          grep -Fq \
+            "image: $IMAGE_NAME:$release_tag" \
+            docker-compose.yml
+
+          {
+            echo "RELEASE_TAG=$release_tag"
+            echo "SOURCE_SHA=$source_sha"
+          } >> "$GITHUB_ENV"
+
+      - name: Log in to GitHub Container Registry
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" |
+            docker login ghcr.io \
+              --username "${{ github.actor }}" \
+              --password-stdin
+
+      - name: Build and publish production watchdog image
+        run: |
+          set -euo pipefail
+          docker buildx create \
+            --name mailcow-package-builder \
+            --driver docker-container \
+            --use
+          docker buildx inspect --bootstrap
+
+          docker buildx build \
+            --platform linux/amd64 \
+            --provenance=true \
+            --sbom=true \
+            --push \
+            --tag "$IMAGE_NAME:$RELEASE_TAG" \
+            --tag "$IMAGE_NAME:$COMPONENT_TAG" \
+            --label "org.opencontainers.image.source=https://github.com/pi0n00r/mailcow-dockerized" \
+            --label "org.opencontainers.image.url=https://github.com/pi0n00r/mailcow-dockerized/releases/tag/$RELEASE_TAG" \
+            --label "org.opencontainers.image.revision=$SOURCE_SHA" \
+            --label "org.opencontainers.image.version=$RELEASE_TAG" \
+            --label "org.opencontainers.image.title=mailcow watchdog" \
+            --label "org.opencontainers.image.description=Production watchdog with dual-stack Unbound and DNSSEC validation" \
+            --label "org.opencontainers.image.licenses=GPL-3.0-only" \
+            --metadata-file /tmp/watchdog-build-metadata.json \
+            data/Dockerfiles/watchdog
+
+          digest="$(
+            jq -r '."containerimage.digest"' \
+              /tmp/watchdog-build-metadata.json
+          )"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+
+          docker buildx imagetools inspect \
+            "$IMAGE_NAME@$digest" >/dev/null
+
+          {
+            echo "### Published Mailcow watchdog"
+            echo
+            echo "\`$IMAGE_NAME:$RELEASE_TAG\`"
+            echo
+            echo "Component alias: \`$IMAGE_NAME:$COMPONENT_TAG\`"
+            echo
+            echo "Digest: \`$digest\`"
+          } >> "$GITHUB_STEP_SUMMARY"
