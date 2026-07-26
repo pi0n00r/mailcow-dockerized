@@ -3505,7 +3505,6 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
             // Track affected mailboxes for SOGo update
             $update_sogo_mailboxes[] = $username;
           }
-          return true;
         break;
         case 'mailbox_rename':
           $domain = $_data['domain'];
@@ -3828,6 +3827,7 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
             $attr["rl_frame"]                    = (!empty($_data['rl_frame'])) ? $_data['rl_frame'] : $is_now['rl_frame'];
             $attr["rl_value"]                    = (!empty($_data['rl_value'])) ? $_data['rl_value'] : $is_now['rl_value'];
             $attr["force_pw_update"]             = isset($_data['force_pw_update']) ? intval($_data['force_pw_update']) : $is_now['force_pw_update'];
+            $attr["force_tfa"]                   = isset($_data['force_tfa']) ? intval($_data['force_tfa']) : $is_now['force_tfa'];
             $attr["sogo_access"]                 = isset($_data['sogo_access']) ? intval($_data['sogo_access']) : $is_now['sogo_access'];
             $attr["active"]                      = isset($_data['active']) ? intval($_data['active']) : $is_now['active'];
             $attr["tls_enforce_in"]              = isset($_data['tls_enforce_in']) ? intval($_data['tls_enforce_in']) : $is_now['tls_enforce_in'];
@@ -6127,7 +6127,6 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
             // Track affected mailboxes for SOGo update
             $update_sogo_mailboxes[] = $username;
           }
-          return true;
         break;
         case 'mailbox_templates':
           if ($_SESSION['mailcow_cc_role'] != "admin") {
