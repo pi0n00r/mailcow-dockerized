@@ -36,7 +36,7 @@ require_pattern 'com\. SOA \+dnssec' "${WATCHDOG}"
 require_pattern 'dnssec-failed\.org A \+dnssec' "${WATCHDOG}"
 reject_pattern 'restart_container unbound' "${WATCHDOG}"
 
-require_pattern 'image: ghcr\.io/pi0n00r/mailcow-watchdog:2026-07-pi0n00r\.1' "${COMPOSE}"
+require_pattern 'image: ghcr\.io/pi0n00r/mailcow-watchdog:2026-07' "${COMPOSE}"
 require_pattern 'ENABLE_IPV6=' "${COMPOSE}"
 require_pattern 'unbound\.conf:/etc/mailcow/unbound\.conf:ro,z' "${COMPOSE}"
 reject_pattern 'UNBOUND_DNSSEC_MODE=' "${COMPOSE}"

@@ -14,7 +14,7 @@ name: Publish Mailcow Watchdog
 on:
   push:
     tags:
-      - "2026-07-pi0n00r.*"
+      - "2026-07"
   workflow_dispatch:
     inputs:
       tag:
@@ -61,7 +61,7 @@ jobs:
             release_tag="${GITHUB_REF_NAME}"
           fi
 
-          if [[ ! "$release_tag" =~ ^2026-07-pi0n00r\.[0-9]+$ ]]; then
+          if [[ "$release_tag" != "2026-07" ]]; then
             echo "Unexpected production release tag: $release_tag" >&2
             exit 1
           fi
